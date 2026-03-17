@@ -41,7 +41,7 @@ public class LoginFrame extends JFrame {
         // Server IP
         gbc.gridy = 2; gbc.gridx = 0;
         panel.add(new JLabel("IP Server:"), gbc);
-        txtServerIP = new JTextField("localhost");
+        txtServerIP = new JTextField("10.0.8.72");
         gbc.gridx = 1;
         panel.add(txtServerIP, gbc);
 

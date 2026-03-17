@@ -17,6 +17,13 @@ public class ChatFrame extends JFrame {
     private JList<String> userList;
     private DefaultListModel<String> listModel;
 
+    private static final String[] EMOJIS = {
+        "😀","😂","😍","😢","😡","😎","🥰","😭",
+        "👍","👎","👏","🙏","🤝","✌️","🤞","💪",
+        "❤️","💔","💯","🔥","⭐","🎉","🎊","🎁",
+        "😅","🤣","😇","🤔","😴","🤯","🥳","😱"
+    };
+
     public ChatFrame(String username, String serverIP) {
         this.username = username;
 
@@ -29,7 +36,6 @@ public class ChatFrame extends JFrame {
         buildUI();
         setVisible(true);
 
-        // Kết nối server trong thread riêng
         new Thread(() -> connectToServer(serverIP)).start();
     }
 
@@ -37,7 +43,6 @@ public class ChatFrame extends JFrame {
         setLayout(new BorderLayout());
         listModel = new DefaultListModel<>();
         userList = new JList<>(listModel);
-        
         userList.setBorder(BorderFactory.createTitledBorder("Online Users"));
         add(new JScrollPane(userList), BorderLayout.WEST);
 
@@ -60,7 +65,7 @@ public class ChatFrame extends JFrame {
         // ── Chat Area ──
         txtChatArea = new JTextArea();
         txtChatArea.setEditable(false);
-        txtChatArea.setFont(new Font("Arial", Font.PLAIN, 14));
+        txtChatArea.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 14));
         txtChatArea.setBackground(new Color(250, 250, 250));
         txtChatArea.setLineWrap(true);
         txtChatArea.setWrapStyleWord(true);
@@ -81,6 +86,15 @@ public class ChatFrame extends JFrame {
             new EmptyBorder(5, 10, 5, 10)
         ));
 
+        // ── Nút Emoji ──
+        JButton btnEmoji = new JButton("😀");
+        btnEmoji.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 16));
+        btnEmoji.setFocusPainted(false);
+        btnEmoji.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btnEmoji.setPreferredSize(new Dimension(45, 36));
+        btnEmoji.addActionListener(e -> showEmojiPicker(btnEmoji));
+
+        // ── Nút Gửi ──
         btnSend = new JButton("Gửi ➤");
         btnSend.setBackground(new Color(0, 120, 215));
         btnSend.setForeground(Color.WHITE);
@@ -89,8 +103,14 @@ public class ChatFrame extends JFrame {
         btnSend.setCursor(new Cursor(Cursor.HAND_CURSOR));
         btnSend.setPreferredSize(new Dimension(90, 36));
 
+        // ── Panel phải chứa emoji + gửi ──
+        JPanel rightPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 4, 0));
+        rightPanel.setBackground(Color.WHITE);
+        rightPanel.add(btnEmoji);
+        rightPanel.add(btnSend);
+
         bottomPanel.add(txtInput, BorderLayout.CENTER);
-        bottomPanel.add(btnSend, BorderLayout.EAST);
+        bottomPanel.add(rightPanel, BorderLayout.EAST);
 
         // ── Ghép layout ──
         add(header, BorderLayout.NORTH);
@@ -102,16 +122,66 @@ public class ChatFrame extends JFrame {
         txtInput.addActionListener(e -> sendMessage());
     }
 
+    private void showEmojiPicker(JButton btnEmoji) {
+        JDialog picker = new JDialog(this, false);
+        picker.setUndecorated(true);
+        picker.setLayout(new GridLayout(4, 8, 4, 4));
+        picker.getRootPane().setBorder(
+            BorderFactory.createLineBorder(new Color(0, 120, 215), 2)
+        );
+
+        for (String emoji : EMOJIS) {
+            JButton btn = new JButton(emoji);
+            btn.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 18));
+            btn.setFocusPainted(false);
+            btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+            btn.setBorderPainted(false);
+            btn.setBackground(Color.WHITE);
+
+            btn.addMouseListener(new java.awt.event.MouseAdapter() {
+                public void mouseEntered(java.awt.event.MouseEvent e) {
+                    btn.setBackground(new Color(230, 240, 255));
+                }
+                public void mouseExited(java.awt.event.MouseEvent e) {
+                    btn.setBackground(Color.WHITE);
+                }
+            });
+
+            btn.addActionListener(e -> {
+                int pos = txtInput.getCaretPosition();
+                String text = txtInput.getText();
+                txtInput.setText(text.substring(0, pos) + emoji + text.substring(pos));
+                txtInput.setCaretPosition(pos + emoji.length());
+                txtInput.requestFocus();
+                picker.dispose();
+            });
+
+            picker.add(btn);
+        }
+
+        picker.pack();
+
+        // Hiện bảng phía trên nút emoji
+        Point loc = btnEmoji.getLocationOnScreen();
+        picker.setLocation(loc.x, loc.y - picker.getHeight() - 5);
+        picker.setVisible(true);
+
+        picker.addWindowFocusListener(new java.awt.event.WindowFocusListener() {
+            public void windowLostFocus(java.awt.event.WindowEvent e) {
+                picker.dispose();
+            }
+            public void windowGainedFocus(java.awt.event.WindowEvent e) {}
+        });
+    }
+
     private void sendMessage() {
         String msg = txtInput.getText().trim();
         if (!msg.isEmpty() && out != null) {
             String receiver = userList.getSelectedValue();
-
-            if(receiver == null){
-                JOptionPane.showMessageDialog(this,"Chọn người để chat");
+            if (receiver == null) {
+                JOptionPane.showMessageDialog(this, "Chọn người để chat");
                 return;
             }
-
             out.println("__MSG__" + username + "|" + receiver + "|" + msg);
             txtInput.setText("");
         }
@@ -120,7 +190,6 @@ public class ChatFrame extends JFrame {
     private void appendMessage(String msg, Color color) {
         SwingUtilities.invokeLater(() -> {
             txtChatArea.append(msg + "\n");
-            // Tự cuộn xuống cuối
             txtChatArea.setCaretPosition(txtChatArea.getDocument().getLength());
         });
     }
@@ -137,32 +206,24 @@ public class ChatFrame extends JFrame {
                 lblStatus.setForeground(new Color(180, 255, 180));
             });
 
-            // Thông báo tên lên server
             out.println("__JOIN__" + username);
 
             String msg;
             while ((msg = in.readLine()) != null) {
-                final String finalMsg = msg;
-                
-                if(msg.startsWith("__USERS__")){
-    
+                if (msg.startsWith("__USERS__")) {
                     String users = msg.substring(9);
                     String[] arr = users.split(",");
-
                     SwingUtilities.invokeLater(() -> {
                         listModel.clear();
-                        for(String u : arr){
-                            if(!u.equals(username)){
+                        for (String u : arr) {
+                            if (!u.equals(username)) {
                                 listModel.addElement(u);
                             }
                         }
                     });
-
-                }
-                else{
+                } else {
                     appendMessage(msg, Color.DARK_GRAY);
                 }
-                
             }
 
         } catch (IOException e) {
